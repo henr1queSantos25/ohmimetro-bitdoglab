@@ -17,7 +17,9 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(ohmimetro-bitdoglab ohmimetro-bitdoglab.c lib/ssd1306.c)
+add_executable(ohmimetro-bitdoglab ohmimetro-bitdoglab.c lib/ssd1306.c lib/led_5x5.c)
+
+pico_generate_pio_header(ohmimetro-bitdoglab ${CMAKE_CURRENT_LIST_DIR}/lib/ohmimetro_bitdoglab.pio)
 
 pico_set_program_name(ohmimetro-bitdoglab "ohmimetro-bitdoglab")
 pico_set_program_version(ohmimetro-bitdoglab "0.1")
@@ -28,6 +30,7 @@ pico_enable_stdio_usb(ohmimetro-bitdoglab 1)
 
 # Add the standard library to the build
 target_link_libraries(ohmimetro-bitdoglab
+        hardware_pio
         pico_stdlib
         hardware_i2c
         hardware_adc)

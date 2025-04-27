@@ -4,34 +4,28 @@
 #include "hardware/adc.h"
 #include "hardware/i2c.h"
 #include "pico/bootrom.h"
-#include <math.h> // Para fabs()
+#include <math.h>
 
 // Bibliotecas externas
 #include "lib/ssd1306.h"
 #include "lib/font.h"
+#include "lib/led_5x5.h"
+
+// Constantes
+#define R_CONHECIDO 10000   // Resistor de 10k ohm
+#define ADC_RESOLUTION 4095 // Resolução do ADC (12 bits)
 
 // Definições de Hardware
 #define I2C_PORT i2c1
 #define I2C_SDA 14
 #define I2C_SCL 15
 #define endereco 0x3C
-#define ADC_PIN 28 // GPIO para o voltímetro
+#define ADC_PIN 28 // GPIO para o ohmímetro
 #define Botao_A 5  // GPIO para botão A
-#define botaoB 6   // GPIO para botão B (modo BOOTSEL)
-
-// Constantes
-#define R_CONHECIDO 10000 // Resistor de 10k ohm
-#define ADC_RESOLUTION 4095 // Resolução do ADC (12 bits)
 
 // Variáveis globais
 ssd1306_t ssd;
-float R_x = 0.0; 
-
-
-// Função para modo BOOTSEL
-void gpio_irq_handler(uint gpio, uint32_t events) {
-  reset_usb_boot(0, 0);
-}
+float R_x = 0.0;
 
 // Vetor de valores E24
 float e24_series[] = {
@@ -44,46 +38,55 @@ float e24_series[] = {
 void setup();
 float medir_resistor();
 float encontrar_valor_E24_tolerancia(float resistencia);
-void obter_cores(int resistencia, char *cor1, char *cor2, char *multiplicador);
+void atualizar_display_resistor(float resistencia, const char *cor1, const char *cor2, const char *multiplicador);
+void obter_cores(int resistencia, char *cor1, char *cor2, char *multiplicador, int *digito1, int *digito2, int *expoente);
 
 int main() {
   // Inicialização
-  setup(); // Chama a função de setup
+  setup();
 
-  gpio_init(botaoB);
-  gpio_set_dir(botaoB, GPIO_IN);
-  gpio_pull_up(botaoB);
-  gpio_set_irq_enabled_with_callback(botaoB, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
-
-  gpio_init(Botao_A);
-  gpio_set_dir(Botao_A, GPIO_IN);
-  gpio_pull_up(Botao_A);
-
-
+  // Variáveis para armazenar os valores do resistor e cores
   char valor_ohms[10], cor1[20], cor2[20], mult[20];
+  int digito1, digito2, expoente;
 
   bool cor = true;
+
   while (true) {
-    R_x = medir_resistor(); // Chama a função para medir o resistor desconhecido
-    printf("Valor do resistor: %1.0f Ohms\n", R_x); // Imprime o valor real do resistor no console
-    R_x = encontrar_valor_E24_tolerancia(R_x); // Encontra o valor E24 mais próximo
+    R_x = medir_resistor();  // Chama a função para medir o resistor desconhecido
+    float resistencia = R_x; // Armazena o valor medido
 
-    sprintf(valor_ohms, "%1.0f Ohms", R_x); // Formata o valor do resistor em string
+    if (R_x > 200000) {
+      ssd1306_fill(&ssd, false);
+      ssd1306_rect(&ssd, 0, 0, 128, 64, cor, !cor);
 
-    obter_cores((int)R_x, cor1, cor2, mult); // Obtém as cores do resistor
+      ssd1306_draw_string(&ssd, "Nenhum Resitor", 3, 8);
+      ssd1306_draw_string(&ssd, "Detectado", 3, 24);
+      ssd1306_draw_string(&ssd, "Verifique o", 3, 38);
+      ssd1306_draw_string(&ssd, "conector", 3, 52);
+      ssd1306_send_data(&ssd);
 
+      apagarMatriz();
+    }
 
-    // Atualiza o display
-    ssd1306_fill(&ssd, false);
+    else {
+      sprintf(valor_ohms, "%1.0f Ohms", R_x); // Formata o valor do resistor em string
 
-    ssd1306_rect(&ssd, 0, 0, 128, 64, cor, !cor); // Desenha um retângulo
-    ssd1306_line(&ssd, 0, 18, 128, 18, cor);      // Desenha uma linha
-    ssd1306_draw_string(&ssd, valor_ohms, 18, 8);
-    ssd1306_draw_string(&ssd, cor1, 3, 24);
-    ssd1306_draw_string(&ssd, cor2, 3, 38);
-    ssd1306_draw_string(&ssd, mult, 3, 52);
+      R_x = encontrar_valor_E24_tolerancia(R_x);    // Encontra o valor E24 mais próximo
+      printf("Valor do resistor: %1.0f Ohms", R_x); // Imprime o valor real do resistor no console
 
-    ssd1306_send_data(&ssd);
+      obter_cores((int)R_x, cor1, cor2, mult, &digito1, &digito2, &expoente); // Obtém as cores do resistor
+
+      // Atualiza o display
+      atualizar_display_resistor(resistencia, cor1, cor2, mult);
+
+      // Desenha as cores do resistor na matriz 5x5
+      drawLinha(expoente, 4);
+      drawLinha(digito2, 2);
+      drawLinha(digito1, 0);
+    }
+
+    printf("\n");
+
     sleep_ms(300);
   }
 }
@@ -95,6 +98,7 @@ void setup() {
   stdio_init_all();
   setup_I2C(I2C_PORT, I2C_SDA, I2C_SCL);
   setup_ssd1306(&ssd, endereco, I2C_PORT);
+  setup_PIO();
   adc_init();
   adc_gpio_init(ADC_PIN); // GPIO 28 como entrada analógica
 }
@@ -112,6 +116,7 @@ float medir_resistor() {
   }
 
   float media = soma / 500.0f;
+  printf("ADC: %1.0f\t", media);
   float resistencia = (R_CONHECIDO * media) / (ADC_RESOLUTION - media);
 
   return resistencia;
@@ -169,27 +174,45 @@ float encontrar_valor_E24_tolerancia(float resistencia) {
 }
 
 /* ==========================================================
+   FUNÇÃO PARA ATUALIZAR O DISPLAY
+   ========================================================== */
+
+void atualizar_display_resistor(float resistencia, const char *cor1, const char *cor2, const char *multiplicador) {
+  char valor_ohms[10];
+  sprintf(valor_ohms, "%1.0f Ohms", resistencia);
+
+  ssd1306_fill(&ssd, false);
+  ssd1306_rect(&ssd, 0, 0, 128, 64, true, false);
+  ssd1306_line(&ssd, 0, 18, 128, 18, true);
+  ssd1306_draw_string(&ssd, valor_ohms, 18, 8);
+  ssd1306_draw_string(&ssd, cor1, 3, 24);
+  ssd1306_draw_string(&ssd, cor2, 3, 38);
+  ssd1306_draw_string(&ssd, multiplicador, 3, 52);
+  ssd1306_send_data(&ssd);
+}
+
+/* ==========================================================
    FUNÇÃO PARA OBTER AS CORES DO RESISTOR
    ========================================================== */
-void obter_cores(int resistencia, char *cor1, char *cor2, char *multiplicador) {
+void obter_cores(int resistencia, char *cor1, char *cor2, char *multiplicador, int *digito1, int *digito2, int *expoente) {
   static const char *cores[] = {"Preto", "Marrom", "Vermelho", "Laranja", "Amarelo", "Verde", "Azul", "Violeta", "Cinza", "Branco"};
 
   int valor = resistencia;
-  int expoente = 0;
+  *expoente = 0;
 
   while (valor >= 100) {
     valor /= 10;
-    expoente++;
+    (*expoente)++;
   }
 
-  int digito1 = valor / 10;
-  int digito2 = valor % 10;
+  *digito1 = valor / 10;
+  *digito2 = valor % 10;
 
-  sprintf(cor1, "1: %s", cores[digito1]);
-  sprintf(cor2, "2: %s", cores[digito2]);
+  sprintf(cor1, "1: %s", cores[*digito1]);
+  sprintf(cor2, "2: %s", cores[*digito2]);
 
-  if (expoente >= 0 && expoente <= 9)
-    sprintf(multiplicador, "Mul: %s", cores[expoente]);
+  if (*expoente >= 0 && *expoente <= 9)
+    sprintf(multiplicador, "Mul: %s", cores[*expoente]);
   else
     sprintf(multiplicador, "Mul: Erro");
 }
