@@ -27,7 +27,7 @@ void setup_PIO() {
 }
 
 // FUNÇÃO PARA ENVIAR O VALOR RGB PARA A MATRIZ
-uint32_t matrix_rgb(double b, double r, double g) {
+uint32_t matrix_rgb(double r, double g, double b) {
     unsigned char R, G, B;
     R = r * 255;
     G = g * 255;
@@ -104,9 +104,9 @@ void drawLinha(int cor, int linhaDesejada) {
 
     switch (cor) {
         case 0: r = 0.0; g = 0.0; b = 0.0; break;      // Preto
-        case 1: r = 0.004; g = 0.0; b = 0.0; break;      // Marrom
+        case 1: r = 0.004; g = 0.0; b = 0.00; break;      // Marrom
         case 2: r = 0.1; g = 0.0; b = 0.0; break;      // Vermelho
-        case 3: r = 0.2; g = 0.1; b = 0.0; break;      // Laranja
+        case 3: r = 0.5; g = 0.1; b = 0.0; break;      // Laranja
         case 4: r = 0.6; g = 0.6; b = 0.0; break;      // Amarelo
         case 5: r = 0.0; g = 0.1; b = 0.0; break;      // Verde
         case 6: r = 0.0; g = 0.0; b = 0.1; break;      // Azul
@@ -115,7 +115,7 @@ void drawLinha(int cor, int linhaDesejada) {
         case 9: r = 0.1; g = 0.1; b = 0.1; break;      // Branco
     }
 
-    uint32_t cor_led = matrix_rgb(b, r, g);
+    uint32_t cor_led = matrix_rgb(r, g, b);
     uint32_t apagado = matrix_rgb(0.0, 0.0, 0.0);
 
     for (int i = 0; i < NUM_PIXELS; i++) {

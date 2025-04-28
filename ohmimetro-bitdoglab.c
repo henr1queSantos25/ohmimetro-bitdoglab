@@ -59,7 +59,7 @@ int main() {
       ssd1306_fill(&ssd, false);
       ssd1306_rect(&ssd, 0, 0, 128, 64, cor, !cor);
 
-      ssd1306_draw_string(&ssd, "Nenhum Resitor", 3, 8);
+      ssd1306_draw_string(&ssd, "Nenhum Resistor", 3, 8);
       ssd1306_draw_string(&ssd, "Detectado", 3, 24);
       ssd1306_draw_string(&ssd, "Verifique o", 3, 38);
       ssd1306_draw_string(&ssd, "conector", 3, 52);
