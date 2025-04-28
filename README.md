@@ -81,7 +81,7 @@ O **Ohmímetro Digital** é um sistema embarcado desenvolvido para medir resisto
 ## Demonstração do Projeto
 
 _Link para o vídeo e demonstração prática:_  
-[#]
+[Clique aqui](#)
 
 ---
 
@@ -107,5 +107,5 @@ _Link para o vídeo e demonstração prática:_
 
 ## Desenvolvido por
 
-Henrique Santos  
+Henrique O. Santos  
 [LinkedIn](https://www.linkedin.com/in/dev-henriqueo-santos/)
