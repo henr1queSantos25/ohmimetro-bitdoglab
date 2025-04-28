@@ -21,7 +21,6 @@
 #define I2C_SCL 15
 #define endereco 0x3C
 #define ADC_PIN 28 // GPIO para o ohmímetro
-#define Botao_A 5  // GPIO para botão A
 
 // Variáveis globais
 ssd1306_t ssd;
